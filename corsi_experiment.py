@@ -31,10 +31,10 @@ class CorsiTaskPygame:
             self.ORANGE, self.CYAN, self.PINK, self.BROWN, self.WHITE
         ]
         
-        self.font = pygame.font.Font(None, 32)  # Fuente más pequeña para botones
+        self.font = pygame.font.Font(None, 32)
         self.small_font = pygame.font.Font(None, 28)
         self.title_font = pygame.font.Font(None, 48)
-        self.button_font = pygame.font.Font(None, 24)  # Fuente más pequeña específica para botones
+        self.button_font = pygame.font.Font(None, 24)
         
         self.data = []
         self.current_test = None
@@ -48,7 +48,7 @@ class CorsiTaskPygame:
             self.screen.blit(title, (400 - title.get_width() // 2, 100))
             
             # Botones más grandes para acomodar texto
-            test1_rect = pygame.Rect(200, 200, 400, 60)  # Botones más grandes
+            test1_rect = pygame.Rect(200, 200, 400, 60)
             test2_rect = pygame.Rect(200, 280, 400, 60)
             exit_rect = pygame.Rect(200, 360, 400, 60)
             
@@ -82,12 +82,12 @@ class CorsiTaskPygame:
                         sys.exit()
     
     def generate_random_positions(self, count=9):
+        """Genera posiciones aleatorias evitando solapamientos"""
         positions = []
         for _ in range(count):
-            # Asegurar que los círculos no se solapen demasiado
             valid_position = False
             attempts = 0
-            while not valid_position and attempts < 100:
+            while not valid_position and attempts < 50:
                 x = random.randint(70, 730)
                 y = random.randint(100, 500)
                 
@@ -95,7 +95,7 @@ class CorsiTaskPygame:
                 too_close = False
                 for existing_pos in positions:
                     distance = ((x - existing_pos[0])**2 + (y - existing_pos[1])**2)**0.5
-                    if distance < 80:  # Distancia mínima entre círculos
+                    if distance < 80:
                         too_close = True
                         break
                 
@@ -105,7 +105,7 @@ class CorsiTaskPygame:
                 
                 attempts += 1
             
-            # Si no encontró posición válida, agregar una por defecto
+            # Si no encontró posición válida, usar posición por defecto
             if not valid_position:
                 default_positions = [
                     (100, 150), (250, 120), (400, 150), (550, 120), (700, 150),
@@ -113,6 +113,9 @@ class CorsiTaskPygame:
                 ]
                 if len(positions) < len(default_positions):
                     positions.append(default_positions[len(positions)])
+                else:
+                    # Último recurso: posición aleatoria simple
+                    positions.append((random.randint(70, 730), random.randint(100, 500)))
         
         return positions
     
@@ -167,7 +170,6 @@ class CorsiTaskPygame:
                     if event.key == pygame.K_SPACE:
                         waiting = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # También permitir clic para continuar
                     waiting = False
     
     def show_countdown(self):
@@ -213,20 +215,39 @@ class CorsiTaskPygame:
         self.show_feedback(correct, duration, practice=True)
     
     def show_sequence(self, sequence, positions, test_type, current_level=None):
+        """Muestra la secuencia de círculos iluminándose - VERSIÓN CORREGIDA"""
         # Mostrar todos los círculos primero
         self.draw_circles(positions, test_type, current_level)
         pygame.display.flip()
         pygame.time.wait(800)
         
-        # Mostrar la secuencia
+        # Mostrar la secuencia con manejo de eventos para evitar congelación
         for i, circle_index in enumerate(sequence):
+            # Dibujar el círculo resaltado
             self.draw_circles(positions, test_type, current_level, highlight_index=circle_index, sequence_index=i)
             pygame.display.flip()
-            pygame.time.wait(800)  # Tiempo iluminado
             
+            # Espera con manejo de eventos para evitar congelación
+            start_time = time.time()
+            while time.time() - start_time < 0.8:  # 800ms
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                pygame.time.wait(10)
+            
+            # Volver a normal
             self.draw_circles(positions, test_type, current_level)
             pygame.display.flip()
-            pygame.time.wait(400)  # Pausa entre iluminaciones
+            
+            # Pausa entre iluminaciones
+            start_time = time.time()
+            while time.time() - start_time < 0.4:  # 400ms
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                pygame.time.wait(10)
     
     def draw_circles(self, positions, test_type, current_level=None, highlight_index=None, sequence_index=0):
         self.screen.fill(self.BLACK)
@@ -288,18 +309,19 @@ class CorsiTaskPygame:
                     
                     for i, circle_pos in enumerate(positions):
                         distance = ((pos[0] - circle_pos[0])**2 + (pos[1] - circle_pos[1])**2)**0.5
-                        if distance <= 30:  # Radio un poco mayor para facilitar clic
+                        if distance <= 30:
                             clicked_index = i
                             break
                     if clicked_index is not None:
                         break
             
-            clock.tick(60)  # 60 FPS para mejor responsividad
+            clock.tick(60)
         
         # Si hubo timeout, seleccionar aleatoriamente para evitar bloqueo
         if clicked_index is None:
-            print("Timeout - seleccionando aleatoriamente")
-            clicked_index = random.randint(0, len(positions) - 1)
+            available_positions = [i for i in range(len(positions))]
+            if available_positions:
+                clicked_index = random.choice(available_positions)
         
         return clicked_index
     
@@ -340,6 +362,7 @@ class CorsiTaskPygame:
             pygame.time.wait(2000)
     
     def run_test1(self):
+        """TEST 1 - Versión corregida sin congelaciones y sin ronda extra"""
         self.current_test = "test1"
         self.show_instructions("test1")
         self.practice_session("test1")
@@ -360,16 +383,18 @@ class CorsiTaskPygame:
         max_level = 9
         
         for level in range(2, max_level + 1):
-            print(f"Iniciando nivel {level}")  # Debug
+            print(f"TEST 1 - Nivel {level}")  # Debug
             # Nuevas posiciones para cada nivel
             positions = self.generate_random_positions(9)
             
+            # SOLO 2 RONDAS POR NIVEL (corregido)
             for round_num in range(1, 3):  # 2 rondas por nivel
-                print(f"  Ronda {round_num}")  # Debug
+                print(f"  Ronda {round_num}")
+                
                 # Generar secuencia para esta ronda
                 sequence = random.sample(range(9), level)
                 
-                # Mostrar secuencia
+                # Mostrar secuencia (con nueva implementación anti-congelación)
                 self.show_sequence(sequence, positions, "test1")
                 
                 # Capturar respuesta y tiempo
@@ -398,9 +423,13 @@ class CorsiTaskPygame:
                 # Mostrar feedback
                 self.show_feedback(correct, duration)
                 
-                # Pequeña pausa entre rondas
+                # Pequeña pausa entre rondas (solo si no es la última)
                 if level < max_level or round_num < 2:
                     pygame.time.wait(1000)
+            
+            # Pausa entre niveles (solo si no es el último nivel)
+            if level < max_level:
+                pygame.time.wait(500)
         
         # Calcular resultado final
         correct_count = sum(1 for data in test_data if data['correct'])
@@ -416,6 +445,7 @@ class CorsiTaskPygame:
         return test_data
     
     def run_test2(self):
+        """TEST 2 - Versión corregida sin congelaciones y sin ronda extra"""
         self.current_test = "test2"
         self.show_instructions("test2")
         self.practice_session("test2")
@@ -436,14 +466,15 @@ class CorsiTaskPygame:
         max_level = 9
         
         for level in range(2, max_level + 1):
-            print(f"Iniciando nivel {level}")  # Debug
+            print(f"TEST 2 - Nivel {level}")  # Debug
             # Nuevas posiciones para cada nivel
             positions = self.generate_random_positions(9)
             
+            # SOLO 1 RONDA POR NIVEL (corregido)
             # Generar secuencia para este nivel
             sequence = random.sample(range(9), level)
             
-            # Mostrar secuencia
+            # Mostrar secuencia (con nueva implementación anti-congelación)
             self.show_sequence(sequence, positions, "test2", level)
             
             # Capturar respuesta y tiempo
@@ -473,7 +504,7 @@ class CorsiTaskPygame:
             self.show_feedback(correct, duration)
             
             # CONTINÚA INDEPENDIENTEMENTE DE SI ES CORRECTO O INCORRECTO
-            # Pequeña pausa entre niveles
+            # Pequeña pausa entre niveles (solo si no es el último)
             if level < max_level:
                 pygame.time.wait(1000)
         
