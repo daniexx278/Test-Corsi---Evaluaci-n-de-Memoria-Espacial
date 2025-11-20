@@ -9,7 +9,7 @@ class CorsiTaskPygame:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((800, 600))
-        pygame.display.set_caption("Test de Memoria Espacial Corsi")
+        pygame.display.set_caption("Test de Memoria De Trabajo Corsi")
         self.clock = pygame.time.Clock()
         
         # Colores
@@ -25,10 +25,10 @@ class CorsiTaskPygame:
         self.PINK = (255, 105, 180)
         self.BROWN = (165, 42, 42)
         
-        # Colores para Test 2 (cuando se iluminan)
-        self.test2_highlight_colors = [
+        # Colores para Test 2 (colores base de los círculos)
+        self.test2_base_colors = [
             self.RED, self.YELLOW, self.GREEN, self.PURPLE, 
-            self.ORANGE, self.CYAN, self.PINK, self.BROWN, self.WHITE
+            self.ORANGE, self.CYAN, self.PINK, self.BROWN, self.BLUE
         ]
         
         self.font = pygame.font.Font(None, 32)
@@ -44,7 +44,7 @@ class CorsiTaskPygame:
             self.screen.fill(self.BLACK)
             
             # Título
-            title = self.title_font.render("TEST DE MEMORIA ESPACIAL CORSI", True, self.WHITE)
+            title = self.title_font.render("TEST DE MEMORIA DE TRABAJO CORSI", True, self.WHITE)
             self.screen.blit(title, (400 - title.get_width() // 2, 100))
             
             # Botones más grandes para acomodar texto
@@ -124,11 +124,11 @@ class CorsiTaskPygame:
             instructions = [
                 "TEST 1 - SECUENCIA ÚNICA",
                 "",
-                "Verás una secuencia de círculos que se iluminarán.",
-                "Debes hacer clic en los mismos círculos en el mismo orden.",
-                "",
-                "La secuencia comenzará con 2 elementos y aumentará",
-                "hasta 9 elementos. Cada nivel tiene 2 rondas.",
+                "Se presentarán 9 círculos de color azul en la pantalla.",
+                "Esos círculos se iluminarán de color amarillo en una",
+                "secuencia específica, que irá incrementando de dificultad.",
+                "Tu trabajo es presionar los círculos en el mismo orden",
+                "en que se iluminaron.",
                 "",
                 "Presiona ESPACIO para la sesión de práctica..."
             ]
@@ -136,12 +136,11 @@ class CorsiTaskPygame:
             instructions = [
                 "TEST 2 - SECUENCIA CON COLORES",
                 "",
-                "Verás círculos de diferentes colores que se iluminarán.",
-                "Debes hacer clic en los mismos círculos en el mismo orden.",
-                "",
-                "Cada nivel agrega nuevos colores a la secuencia.",
-                "Los círculos estarán en azul y cambiarán de color",
-                "cuando se iluminen en la secuencia.",
+                "Se presentarán 9 círculos de diferentes colores en la pantalla.",
+                "Esos círculos se iluminarán de color blanco en una",
+                "secuencia específica, que irá incrementando de dificultad.",
+                "Tu trabajo es presionar los círculos en el mismo orden",
+                "en que se iluminaron.",
                 "",
                 "Presiona ESPACIO para la sesión de práctica..."
             ]
@@ -260,12 +259,13 @@ class CorsiTaskPygame:
                 else:
                     color = self.BLUE
             else:  # test2
-                # Test 2: siempre azul en estado normal
+                # Test 2: MODIFICACIÓN - círculos con colores diferentes de inicio
                 if highlight_index == i:
-                    # Cuando se ilumina, usa colores diferentes según la posición en la secuencia
-                    color = self.test2_highlight_colors[sequence_index % len(self.test2_highlight_colors)]
+                    # Cuando se ilumina, usa color BLANCO
+                    color = self.WHITE
                 else:
-                    color = self.BLUE  # Todos azules cuando no están iluminados
+                    # Cada círculo tiene un color diferente de la lista
+                    color = self.test2_base_colors[i % len(self.test2_base_colors)]
             
             pygame.draw.circle(self.screen, color, pos, 25)
             pygame.draw.circle(self.screen, self.WHITE, pos, 25, 2)
@@ -326,6 +326,7 @@ class CorsiTaskPygame:
         return clicked_index
     
     def show_feedback(self, correct, duration, practice=False):
+        # MODIFICACIÓN: No mostrar el tiempo en pantalla, solo guardarlo en Excel
         if practice:
             feedback_text = "✓ PRÁCTICA CORRECTA" if correct else "✗ PRÁCTICA INCORRECTA"
         else:
@@ -335,14 +336,12 @@ class CorsiTaskPygame:
         
         self.screen.fill(self.BLACK)
         text1 = self.font.render(feedback_text, True, color)
-        text2 = self.small_font.render(f"Tiempo: {duration:.2f} segundos", True, self.WHITE)
         
         self.screen.blit(text1, (400 - text1.get_width() // 2, 250))
-        self.screen.blit(text2, (400 - text2.get_width() // 2, 300))
         
         if practice:
             text3 = self.small_font.render("Presiona ESPACIO para continuar con el test...", True, self.WHITE)
-            self.screen.blit(text3, (400 - text3.get_width() // 2, 350))
+            self.screen.blit(text3, (400 - text3.get_width() // 2, 300))
         
         pygame.display.flip()
         
@@ -362,7 +361,7 @@ class CorsiTaskPygame:
             pygame.time.wait(2000)
     
     def run_test1(self):
-        """TEST 1 - Versión corregida sin congelaciones y sin ronda extra"""
+        """TEST 1 - Con regla de 2 fallos seguidos por nivel"""
         self.current_test = "test1"
         self.show_instructions("test1")
         self.practice_session("test1")
@@ -381,20 +380,24 @@ class CorsiTaskPygame:
         
         test_data = []
         max_level = 9
+        consecutive_failures = 0  # Contador de fallos seguidos
         
         for level in range(2, max_level + 1):
-            print(f"TEST 1 - Nivel {level}")  # Debug
+            print(f"TEST 1 - Nivel {level}")
             # Nuevas posiciones para cada nivel
             positions = self.generate_random_positions(9)
             
-            # SOLO 2 RONDAS POR NIVEL (corregido)
-            for round_num in range(1, 3):  # 2 rondas por nivel
+            # Reiniciar contador de fallos seguidos por nivel
+            level_consecutive_failures = 0
+            
+            # SOLO 2 RONDAS POR NIVEL
+            for round_num in range(1, 3):
                 print(f"  Ronda {round_num}")
                 
                 # Generar secuencia para esta ronda
                 sequence = random.sample(range(9), level)
                 
-                # Mostrar secuencia (con nueva implementación anti-congelación)
+                # Mostrar secuencia
                 self.show_sequence(sequence, positions, "test1")
                 
                 # Capturar respuesta y tiempo
@@ -420,18 +423,43 @@ class CorsiTaskPygame:
                 }
                 test_data.append(round_data)
                 
-                # Mostrar feedback
+                # Mostrar feedback (sin tiempo en pantalla)
                 self.show_feedback(correct, duration)
                 
-                # Pequeña pausa entre rondas (solo si no es la última)
+                # MODIFICACIÓN: Control de fallos seguidos
+                if not correct:
+                    level_consecutive_failures += 1
+                    consecutive_failures += 1
+                else:
+                    level_consecutive_failures = 0
+                    consecutive_failures = 0
+                
+                # Si hay 2 fallos seguidos en este nivel, terminar el test
+                if level_consecutive_failures >= 2:
+                    print("2 fallos seguidos en el nivel - terminando test")
+                    # Mostrar mensaje de fin por fallos
+                    self.show_early_termination(level)
+                    # Calcular resultados hasta donde llegó
+                    correct_count = sum(1 for data in test_data if data['correct'])
+                    total_rounds = len(test_data)
+                    corsi_span = max([data['level'] for data in test_data if data['correct']] + [0])
+                    
+                    # Mostrar resultados finales
+                    self.show_final_results(test_data, corsi_span, correct_count, total_rounds, early_termination=True)
+                    
+                    # Guardar datos
+                    self.save_data(test_data, "test1")
+                    return test_data
+                
+                # Pequeña pausa entre rondas
                 if level < max_level or round_num < 2:
                     pygame.time.wait(1000)
             
-            # Pausa entre niveles (solo si no es el último nivel)
+            # Pausa entre niveles
             if level < max_level:
                 pygame.time.wait(500)
         
-        # Calcular resultado final
+        # Calcular resultado final (si completó todos los niveles)
         correct_count = sum(1 for data in test_data if data['correct'])
         total_rounds = len(test_data)
         corsi_span = max([data['level'] for data in test_data if data['correct']] + [0])
@@ -445,7 +473,7 @@ class CorsiTaskPygame:
         return test_data
     
     def run_test2(self):
-        """TEST 2 - Versión corregida sin congelaciones y sin ronda extra"""
+        """TEST 2 - Con regla de 2 niveles fallados seguidos"""
         self.current_test = "test2"
         self.show_instructions("test2")
         self.practice_session("test2")
@@ -464,17 +492,18 @@ class CorsiTaskPygame:
         
         test_data = []
         max_level = 9
+        consecutive_failed_levels = 0  # NUEVO: Contador de niveles fallados seguidos
         
         for level in range(2, max_level + 1):
-            print(f"TEST 2 - Nivel {level}")  # Debug
-            # Nuevas posiciones para cada nivel
+            print(f"TEST 2 - Nivel {level}")
+            # MODIFICACIÓN: Nuevas posiciones aleatorias para cada nivel (patrón desordenado)
             positions = self.generate_random_positions(9)
             
-            # SOLO 1 RONDA POR NIVEL (corregido)
+            # SOLO 1 RONDA POR NIVEL
             # Generar secuencia para este nivel
             sequence = random.sample(range(9), level)
             
-            # Mostrar secuencia (con nueva implementación anti-congelación)
+            # Mostrar secuencia
             self.show_sequence(sequence, positions, "test2", level)
             
             # Capturar respuesta y tiempo
@@ -490,7 +519,7 @@ class CorsiTaskPygame:
             level_data = {
                 'test_type': 'Test2',
                 'level': level,
-                'round': 1,  # Solo una ronda por nivel en Test 2
+                'round': 1,
                 'sequence_length': level,
                 'correct_sequence': str(sequence),
                 'user_sequence': str(user_sequence),
@@ -500,15 +529,37 @@ class CorsiTaskPygame:
             }
             test_data.append(level_data)
             
-            # Mostrar feedback
+            # Mostrar feedback (sin tiempo en pantalla)
             self.show_feedback(correct, duration)
             
-            # CONTINÚA INDEPENDIENTEMENTE DE SI ES CORRECTO O INCORRECTO
-            # Pequeña pausa entre niveles (solo si no es el último)
+            # NUEVA MODIFICACIÓN: Control de niveles fallados seguidos
+            if not correct:
+                consecutive_failed_levels += 1
+                print(f"Nivel {level} fallado. Fallos seguidos: {consecutive_failed_levels}")
+            else:
+                consecutive_failed_levels = 0  # Reiniciar contador si acierta
+            
+            # Si hay 2 niveles fallados seguidos, terminar el test
+            if consecutive_failed_levels >= 2:
+                print("2 niveles fallados seguidos - terminando test")
+                # Mostrar mensaje de fin por fallos
+                self.show_early_termination_test2(level)
+                # Calcular resultados hasta donde llegó
+                correct_levels = [data['level'] for data in test_data if data['correct']]
+                corsi_span = max(correct_levels) if correct_levels else 0
+                
+                # Mostrar resultados finales
+                self.show_final_results(test_data, corsi_span, len(correct_levels), len(test_data), early_termination=True)
+                
+                # Guardar datos
+                self.save_data(test_data, "test2")
+                return test_data
+            
+            # Pequeña pausa entre niveles (solo si no es el último y no terminó por fallos)
             if level < max_level:
                 pygame.time.wait(1000)
         
-        # Calcular resultado final
+        # Calcular resultado final (si completó todos los niveles)
         correct_levels = [data['level'] for data in test_data if data['correct']]
         corsi_span = max(correct_levels) if correct_levels else 0
         
@@ -520,15 +571,50 @@ class CorsiTaskPygame:
         
         return test_data
     
-    def show_final_results(self, test_data, corsi_span, correct_count, total_count):
-        results = [
-            "¡FIN DEL TEST!",
+    def show_early_termination(self, level):
+        """Muestra mensaje cuando el test termina por 2 fallos seguidos (Test 1)"""
+        message = [
+            "TEST TERMINADO",
             "",
-            f"Tu span de Corsi: {corsi_span} elementos",
-            f"Respuestas correctas: {correct_count}/{total_count}",
+            f"Has fallado 2 veces seguidas en el nivel {level}.",
+            "El test ha finalizado.",
             "",
-            "Presiona ESPACIO para volver al menú..."
+            "Presiona ESPACIO para ver los resultados..."
         ]
+        self.show_text_screen(message)
+    
+    def show_early_termination_test2(self, level):
+        """Muestra mensaje cuando el test termina por 2 niveles fallados seguidos (Test 2)"""
+        message = [
+            "TEST TERMINADO",
+            "",
+            f"Has fallado 2 niveles seguidos (niveles {level-1} y {level}).",
+            "El test ha finalizado.",
+            "",
+            "Presiona ESPACIO para ver los resultados..."
+        ]
+        self.show_text_screen(message)
+    
+    def show_final_results(self, test_data, corsi_span, correct_count, total_count, early_termination=False):
+        if early_termination:
+            results = [
+                "¡FIN DEL TEST!",
+                "",
+                "El test terminó antes por fallos consecutivos.",
+                f"Tu span de Corsi: {corsi_span} elementos",
+                f"Respuestas correctas: {correct_count}/{total_count}",
+                "",
+                "Presiona ESPACIO para volver al menú..."
+            ]
+        else:
+            results = [
+                "¡FIN DEL TEST!",
+                "",
+                f"Tu span de Corsi: {corsi_span} elementos",
+                f"Respuestas correctas: {correct_count}/{total_count}",
+                "",
+                "Presiona ESPACIO para volver al menú..."
+            ]
         
         self.show_text_screen(results)
     
